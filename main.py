@@ -1,36 +1,62 @@
-import requests
-import openpyxl
+import pandas as pd
 import time
-
+import os
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+import openpyxl
+from openpyxl.styles import PatternFill
 
-from bs4 import BeautifulSoup
+import fill_asset_account_color
 
+# 全域變數
+user_ip = '192.168.56.102' ## IP -> 192.168.56.xxx 
 opts = Options()
-# opts.add_argument('--headless')  #無頭chrome
+# opts.add_argument('--headless')  #不顯示Chrome
 opts.add_argument('--disable-gpu')
-webdriver_path = 'C:/Users/leotam/Downloads/Code/get_sql_ledger/chromedriver'
+webdriver_path = './chromedriver'
+chrome = webdriver.Chrome(executable_path = webdriver_path, chrome_options = opts)
 
-# IP -> 192.168.56.xxx 
-user_ip = '192.168.56.102'
-url = 'http://{}/sql-ledger/login.pl'.format(user_ip)
-chrome = webdriver.Chrome(executable_path=webdriver_path,chrome_options=opts)
-chrome.get(url)
+# ------------------- 1 ----------------------- #
+## Login SQL-Ledger (user) 
+def login_sql_ledger(user_id, user_password):
+    url = 'http://{}/sql-ledger/login.pl'.format(user_ip)
+    chrome.get(url)
 
-login_id = chrome.find_element_by_xpath("/html/body/center/table/tbody/tr/td/form/table/tbody/tr/td/table/tbody/tr[1]/td/input")
-password_id = chrome.find_element_by_xpath("/html/body/center/table/tbody/tr/td/form/table/tbody/tr/td/table/tbody/tr[2]/td/input")
+    login_fill_id = chrome.find_element_by_xpath("/html/body/center/table/tbody/tr/td/form/table/tbody/tr/td/table/tbody/tr[1]/td/input")
+    password_fill_id = chrome.find_element_by_xpath("/html/body/center/table/tbody/tr/td/form/table/tbody/tr/td/table/tbody/tr[2]/td/input")
 
-user_id = 'user'
-login_id.send_keys(user_id)
+    login_fill_id.send_keys(user_id)
+    password_fill_id.send_keys(user_password)
 
-url2 = 'http://{}/sql-ledger/rp.pl?path=bin/mozilla&action=report&level=Reports--Trial%20Balance&login=user&js=1&report=trial_balance'.format(user_ip)
-chrome.get(url2)
-time.sleep(2)
+    chrome.find_element_by_xpath('/html/body/center/table/tbody/tr/td/form/table/tbody/tr/td/input').click()
+    
+    time.sleep(3)
+    
+# ------------------- 2 ----------------------- #
+## 爬取會計科目表
+def asset_account(user_ip):
+    book_nanme = "會計科目表"
+    url = 'http://{}/sql-ledger/ca.pl?path=bin/mozilla&action=chart_of_accounts&level=Reports--Chart%20of%20Accounts&login=user&js=1'.format(user_ip)
+    chrome.get(url)
+    time.sleep(2)
 
-chrome.find_element_by_xpath('/html/body/form/input[1]').click()
-time.sleep(2)
+    web_data_sc = pd.read_html(url, encoding="utf-8")
+    df_web_data = web_data_sc[0]
+    df_web_data.columns = ["帳戶", "財務訊息通用索引(GIFI)", "說明", "借方", "貸方"]
+    # print(web_data)
 
-
-
-time.sleep(30)
+    print(type(df_web_data))
+    print("----------------")
+    print(df_web_data)
+    
+    # 寫入到Excel
+    path = os.path.join(os.getcwd(), 'SQL-Ledger.xlsx') # 設定路徑及檔名
+    writer = pd.ExcelWriter(path, engine='openpyxl') # 指定引擎openpyxl
+    df_web_data.to_excel(writer, sheet_name=book_nanme ,index=False)
+    writer.save()
+    
+    fill_asset_account_color.fill_asset_account_color()
+     
+if __name__ == "__main__":
+    login_sql_ledger("user", "")
+    asset_account(user_ip)
