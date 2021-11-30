@@ -5,7 +5,10 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 import openpyxl
 from openpyxl.styles import PatternFill
+from bs4 import BeautifulSoup
 
+
+# 為會計科目表進行填色
 import fill_asset_account_color
 
 # 全域變數
@@ -30,7 +33,7 @@ def login_sql_ledger(user_id, user_password):
 
     chrome.find_element_by_xpath('/html/body/center/table/tbody/tr/td/form/table/tbody/tr/td/input').click()
     
-    time.sleep(3)
+    time.sleep(1)
     
 # ------------------- 2 ----------------------- #
 ## 爬取會計科目表
@@ -38,7 +41,7 @@ def asset_account(user_ip):
     book_nanme = "會計科目表"
     url = 'http://{}/sql-ledger/ca.pl?path=bin/mozilla&action=chart_of_accounts&level=Reports--Chart%20of%20Accounts&login=user&js=1'.format(user_ip)
     chrome.get(url)
-    time.sleep(2)
+    time.sleep(21)
 
     web_data_sc = pd.read_html(url, encoding="utf-8")
     df_web_data = web_data_sc[0]
@@ -56,7 +59,29 @@ def asset_account(user_ip):
     writer.save()
     
     fill_asset_account_color.fill_asset_account_color()
-     
+
+# ------------------- 3 ----------------------- #
+## 爬取試算表
+def Spreadsheet(user_ip):
+    url = 'http://{}/sql-ledger/rp.pl?path=bin/mozilla&action=report&level=Reports--Trial%20Balance&login=user&js=1&report=trial_balance'.format(user_ip)
+    chrome.get(url)
+    time.sleep(1)
+    
+    chrome.find_element_by_xpath('/html/body/form/input[1]').click()
+    
+    time.sleep(0.5)  
+    # print(chrome.page_source)
+    soup = BeautifulSoup(chrome.page_source, 'lxml')
+    
+    find_th = soup.find_all("tr")[3].find_all("th", attrs={'class' : 'listheading'})
+    for i in find_th:
+        print(i)
+
+    
+    
+    # df = pd.DataFrame(df_list, columns = ["No", "帳戶", "說明", "起始餘額" ,"借方", "貸方", "餘額"])
+    
 if __name__ == "__main__":
-    login_sql_ledger("user", "")
-    asset_account(user_ip)
+    login_sql_ledger("user", "6263")
+    # asset_account(user_ip)
+    Spreadsheet(user_ip)
