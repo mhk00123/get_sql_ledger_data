@@ -1,17 +1,26 @@
 import pandas as pd
-import time
-import os
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-import openpyxl
-from openpyxl.styles import PatternFill
 from bs4 import BeautifulSoup
+import openpyxl
 import re
+import time
+import os
 
 # 為會計科目表進行填色
 import fill_asset_account_color
 
-# 全域變數
+# Global Var
+# 會計科目表
+asset_account = list()
+# 試算表
+trial_balance = list()
+# 損益表
+income_statement = list()
+# 資產負債表
+balance_sheet = list()
+
+# Selenium Setup
 user_ip = '192.168.56.102' ## IP -> 192.168.56.xxx 
 opts = Options()
 opts.add_argument('--headless')  #不顯示Chrome
@@ -20,7 +29,7 @@ webdriver_path = './chromedriver'
 chrome = webdriver.Chrome(executable_path = webdriver_path, chrome_options = opts)
 
 # ------------------- 1 ----------------------- #
-## Login SQL-Ledger (user) 
+## Login SQL-Ledger (user, 6263) 
 def login_sql_ledger(user_id, user_password):
     url = 'http://{}/sql-ledger/login.pl'.format(user_ip)
     chrome.get(url)
@@ -35,7 +44,8 @@ def login_sql_ledger(user_id, user_password):
     
 # ------------------- 2 ----------------------- #
 ## 爬取會計科目表
-def asset_account(user_ip):
+## Return DataFrame
+def get_asset_account(user_ip):
     book_nanme = "會計科目表"
     url = 'http://{}/sql-ledger/ca.pl?path=bin/mozilla&action=chart_of_accounts&level=Reports--Chart%20of%20Accounts&login=user&js=1'.format(user_ip)
     chrome.get(url)
@@ -48,7 +58,6 @@ def asset_account(user_ip):
     th_title = soup.find_all('tr', {'class':'listheading'})
     th_title = th_title[0].text.split('\n')
     th_title = th_title[0:len(th_title)-1]
-    print(th_title)
     
     regex = re.compile('l*')
     find_tr = soup.find_all('tr', {'class' : regex})
@@ -59,21 +68,13 @@ def asset_account(user_ip):
         rows.append(split_temp[0:len(split_temp)-1])
     
     rows = rows[1:len(rows)]
-    for i in rows:
-        print(i)
-    
     df_web_data = pd.DataFrame(rows, columns = th_title)
-    # 寫入到Excel
-    path = os.path.join(os.getcwd(), 'SQL-Ledger.xlsx') # 設定路徑及檔名
-    writer = pd.ExcelWriter(path, engine='openpyxl') # 指定引擎openpyxl
-    df_web_data.to_excel(writer, sheet_name=book_nanme ,index=False)
-    writer.save()
-    
-    fill_asset_account_color.fill_asset_account_color()
 
+    return df_web_data
+    
 # ------------------- 3 ----------------------- #
 ## 爬取試算表
-def Spreadsheet(user_ip):
+def get_trial_balance(user_ip):
     url = 'http://{}/sql-ledger/rp.pl?path=bin/mozilla&action=report&level=Reports--Trial%20Balance&login=user&js=1&report=trial_balance'.format(user_ip)
     chrome.get(url)
     time.sleep(1)
@@ -97,25 +98,36 @@ def Spreadsheet(user_ip):
         for index, element in enumerate(split_temp):
             split_temp[index] = element.replace('\xa0','')
         rows.append(split_temp[1:len(split_temp)-1])
-        print(split_temp)
-        print("------------------")
-    
-    for i in rows:
-        print(i)
         
     df_web_data = pd.DataFrame(rows, columns = th_title)
-    print(df_web_data)
     
-    # 寫入到Excel
-    book_nanme = "試算表"
-    path = os.path.join(os.getcwd(), 'SQL-Ledger.xlsx') # 設定路徑及檔名
-    writer = pd.ExcelWriter(path, engine='openpyxl') # 指定引擎openpyxl
-    df_web_data.to_excel(writer, sheet_name=book_nanme ,index=False)
-    writer.save()
-    
-    fill_asset_account_color.fill_spreadsheet_color()
-    
+    return df_web_data 
+
+# 寫入Excel Function
+# data should be a list
+def write_to_excel(sheet_name_w, data):
+    file_name = 'SQL-Ledger.xlsx'
+    path_w = os.path.join(os.getcwd(), file_name)
+    with pd.ExcelWriter(engine='openpyxl', path=path_w, mode='a') as writer:
+        book = writer.book
+        try:    
+            book.remove(book[sheet_name_w])
+        except:
+            pass
+        data.to_excel(writer, sheet_name = sheet_name_w, index = False)
+    # book.save()
+    print("Write {} successfully.".format(sheet_name_w))
+
 if __name__ == "__main__":
-    login_sql_ledger("user", "6263")
-    asset_account(user_ip)
-    Spreadsheet(user_ip)
+    # login_sql_ledger("user", "6263")
+    # asset_account = get_asset_account(user_ip)
+    # fill_asset_account_color
+    # trial_balance = get_trial_balance(user_ip)
+    
+    # print(asset_account)
+    # print(trial_balance)
+    
+    # write_to_excel('試算表', trial_balance)
+    # write_to_excel('會計科目表', asset_account)
+    fill_asset_account_color.fill_asset_account_color()
+    fill_asset_account_color.fill_trial_balance_color()
