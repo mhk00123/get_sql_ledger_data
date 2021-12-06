@@ -6,7 +6,7 @@ from selenium.webdriver.chrome.options import Options
 import openpyxl
 from openpyxl.styles import PatternFill
 from bs4 import BeautifulSoup
-
+import re
 
 # 為會計科目表進行填色
 import fill_asset_account_color
@@ -67,19 +67,42 @@ def Spreadsheet(user_ip):
     chrome.get(url)
     time.sleep(1)
     
+    chrome.find_element_by_xpath('/html/body/form/table/tbody/tr[4]/td/table/tbody/tr[1]/td/input[2]').click()
     chrome.find_element_by_xpath('/html/body/form/input[1]').click()
-    
-    time.sleep(0.5)  
+    time.sleep(1)  
     # print(chrome.page_source)
     soup = BeautifulSoup(chrome.page_source, 'lxml')
     
+    th_title = list()
     find_th = soup.find_all("tr")[3].find_all("th", attrs={'class' : 'listheading'})
     for i in find_th:
+        th_title.append(i.text)
+    
+    regex = re.compile('list*')
+    rows = list()
+    find_tr = soup.find_all('tr')[3].find('table').find_all('tr',{'class':regex})
+    for i in find_tr:
+        split_temp = i.get_text().split('\n')
+        for index, element in enumerate(split_temp):
+            split_temp[index] = element.replace('\xa0',' ')
+        rows.append(split_temp[1:len(split_temp)-1])
+        print(split_temp)
+        print("------------------")
+    
+    for i in rows:
         print(i)
-
+        
+    df_web_data = pd.DataFrame(rows, columns = th_title)
+    print(df_web_data)
     
+    # 寫入到Excel
+    book_nanme = "試算表"
+    path = os.path.join(os.getcwd(), 'SQL-Ledger.xlsx') # 設定路徑及檔名
+    writer = pd.ExcelWriter(path, engine='openpyxl') # 指定引擎openpyxl
+    df_web_data.to_excel(writer, sheet_name=book_nanme ,index=False)
+    writer.save()
     
-    # df = pd.DataFrame(df_list, columns = ["No", "帳戶", "說明", "起始餘額" ,"借方", "貸方", "餘額"])
+    fill_asset_account_color
     
 if __name__ == "__main__":
     login_sql_ledger("user", "6263")
