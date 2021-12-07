@@ -3,7 +3,7 @@ import openpyxl
 from openpyxl.styles import PatternFill
 
 def fill_asset_account_color():
-    file_name = "SQL-Ledger.xlsx"
+    file_name = '會計科目表.xlsx'
     sheet_name = "會計科目表"
 
     wb = openpyxl.load_workbook(file_name)
@@ -34,7 +34,7 @@ def fill_asset_account_color():
     wb.save(file_name)
     
 def fill_trial_balance_color():
-    file_name = "SQL-Ledger.xlsx"
+    file_name = "試算表.xlsx"
     sheet_name = "試算表"
 
     wb = openpyxl.load_workbook(file_name)
@@ -62,3 +62,25 @@ def fill_trial_balance_color():
             wb_sheet_select.cell(row=rows, column=j).fill = fill_color
     
     wb.save(file_name)
+    
+def fill_income_statement_color():
+    file_name = "損益表.xlsx"
+    sheet_name = "損益表"
+
+    wb = openpyxl.load_workbook(file_name)
+    wb_name = sheet_name
+
+    # 選定表
+    wb_sheet_select = wb[wb_name]
+    print(wb_sheet_select)
+
+    # solid = 實色填充
+    rows = wb_sheet_select.max_row
+    fill_color = PatternFill('solid', fgColor="8DB4E2")
+    for j in range(1, wb_sheet_select.max_column+1):
+            wb_sheet_select.cell(row=rows, column=j).fill = fill_color
+    
+    wb.save(file_name)
+    
+if __name__ == '__main__':
+    fill_income_statement_color()

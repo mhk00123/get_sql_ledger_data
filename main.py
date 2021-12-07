@@ -74,6 +74,7 @@ def get_asset_account(user_ip):
     
 # ------------------- 3 ----------------------- #
 ## 爬取試算表
+## Return DataFrame
 def get_trial_balance(user_ip):
     url = 'http://{}/sql-ledger/rp.pl?path=bin/mozilla&action=report&level=Reports--Trial%20Balance&login=user&js=1&report=trial_balance'.format(user_ip)
     chrome.get(url)
@@ -103,31 +104,71 @@ def get_trial_balance(user_ip):
     
     return df_web_data 
 
+# ------------------- 4 ----------------------- #
+## 爬取損益表
+## Return DataFrame
+def get_income_statement(user_ip):
+    url = 'http://{}/sql-ledger/rp.pl?path=bin/mozilla&action=report&level=Reports--Income%20Statement&login=user&js=1&report=income_statement'.format(user_ip)
+    chrome.get(url)
+    time.sleep(0.5)
+    
+    chrome.find_element_by_xpath('/html/body/form/input[1]').click()
+    time.sleep(0.5)
+    soup = BeautifulSoup(chrome.page_source, 'lxml')
+    print(soup)
+    
+    rows = list()
+    find_tr = soup.find_all('tr')
+    for i in find_tr:
+        split_temp = i.get_text().split('\n')
+        rows.append(split_temp[1:len(split_temp)-1])
+        # print(split_temp)
+        # print("--------------------------")
+        # for i in rows:
+            # print(i)
+    rows[-1].insert(1,"")
+    print(rows[-1])
+    
+    df_web_data = pd.DataFrame(rows)
+    
+    return df_web_data
+
 # 寫入Excel Function
 # data should be a list
-def write_to_excel(sheet_name_w, data):
-    file_name = 'SQL-Ledger.xlsx'
+def write_to_excel(file_name_w, sheet_name_w, data_w):
+    file_name = '{}.xlsx'.format(file_name_w)
     path_w = os.path.join(os.getcwd(), file_name)
-    with pd.ExcelWriter(engine='openpyxl', path=path_w, mode='a') as writer:
+    
+    if file_name_w == "損益表":
+        header_select = False
+    else:
+        header_select = True
+    
+    with pd.ExcelWriter(engine='openpyxl', path=path_w, mode='w') as writer:
         book = writer.book
         try:    
             book.remove(book[sheet_name_w])
         except:
             pass
-        data.to_excel(writer, sheet_name = sheet_name_w, index = False)
-    # book.save()
+        data_w.to_excel(writer, sheet_name = sheet_name_w, index = False, header = header_select)
+    
     print("Write {} successfully.".format(sheet_name_w))
 
 if __name__ == "__main__":
-    # login_sql_ledger("user", "6263")
+    login_sql_ledger("user", "6263")
+    
+    income_statement = get_income_statement(user_ip)
+    print(income_statement)
+    write_to_excel("損益表", "損益表", income_statement)
+    
     # asset_account = get_asset_account(user_ip)
-    # fill_asset_account_color
     # trial_balance = get_trial_balance(user_ip)
     
     # print(asset_account)
     # print(trial_balance)
     
-    # write_to_excel('試算表', trial_balance)
-    # write_to_excel('會計科目表', asset_account)
-    fill_asset_account_color.fill_asset_account_color()
-    fill_asset_account_color.fill_trial_balance_color()
+    # write_to_excel('試算表', '試算表', trial_balance)
+    # write_to_excel('會計科目表', '會計科目表', asset_account)
+    
+    # fill_asset_account_color.fill_trial_balance_color()
+    # fill_asset_account_color.fill_asset_account_color()
